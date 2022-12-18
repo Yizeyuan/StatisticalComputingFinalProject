@@ -1,0 +1,112 @@
+---
+title: "Analysing the CTSIB data"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Analysing the CTSIB data package}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+---
+
+### Importing the data
+
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+
+library(GGally)
+library(ggsci)
+library(cvms)
+library(rpart)
+library(rpart.plot)
+library(kernlab)
+library(dplyr)
+
+```
+
+```{r}
+original_data <- read.csv("./ctsib.csv")
+# since the goal of this analysis is to determine how the surface and vision treatments affect a person’s stability,
+# only the relevant data would be used.
+original_relevant_data <- select(original_data, Surface, Vision, CTSIB)
+head(original_data)
+```
+
+```{r}
+table(original_relevant_data$Surface)
+```
+
+### Data pre-processing
+
+```{r}
+# foam -> 1, norm -> 2
+original_relevant_data$Surface[original_relevant_data$Surface == "foam"] <- 1
+original_relevant_data$Surface[original_relevant_data$Surface == "norm"] <- 2
+table(original_relevant_data$Surface)
+```
+
+```{r}
+table(original_relevant_data$Vision)
+```
+
+```{r}
+original_relevant_data$Vision[original_relevant_data$Vision == "closed"] = 1
+original_relevant_data$Vision[original_relevant_data$Vision == "dome"] = 2
+original_relevant_data$Vision[original_relevant_data$Vision == "open"] = 3
+table(original_relevant_data$Vision)
+```
+
+```{r}
+
+# fill the na value with 0
+original_relevant_data[is.na(original_relevant_data)] <- 0;
+
+# replace the column value of the CTSIB to 2 when its value is greater than 1
+original_relevant_data$CTSIB[original_relevant_data$CTSIB <= 1] <- 0
+original_relevant_data$CTSIB[original_relevant_data$CTSIB > 1] <- 1
+original_relevant_data$CTSIB
+```
+
+
+```{r}
+plot(original_relevant_data$CTSIB)
+```
+
+### Get the formula
+
+```{r}
+x1 <- original_relevant_data$Surface
+x2 <- original_relevant_data$Vision
+y <-  original_relevant_data$CTSIB
+formula_str <- y ~ x1 + x2
+family <- "binomial"
+
+```
+
+
+### Fit the binomial model
+
+When fitting the binomial model, the estimated probability of success for the logistic regression model:
+$$
+\frac{e^{\beta_0+x\beta_1}}{1+e^{\beta_0+x\beta_1}}
+$$
+
+```{r}
+binomial_model <- glm(data = original_relevant_data, formula = formula_str, family = family)
+binomial_model 
+```
+
+
+```{r}
+summary(binomial_model)
+```
+
+
+```{r}
+# plot the model to get some result of Residuals vs Fitted, Normal Q-Q, Scale-Location, and Residuals vs Leverage.
+plot(binomial_model)
+```
+
+```{r}
+plot(density(residuals(binomial_model)))
+```
